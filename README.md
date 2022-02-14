@@ -1,64 +1,110 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400"></a></p>
+# HeyURL! Code Challenge
 
-<p align="center">
-<a href="https://travis-ci.org/laravel/framework"><img src="https://travis-ci.org/laravel/framework.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+## Getting Started
 
-## About Laravel
+1. Clone repository
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+2. Setup Sail (optional) https://laravel.com/docs/9.x/installation
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+3. Install dependencies
+```sh
+$ composer install
+```
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+1. Clone repository
+2. Composer install
+3. Modify .env
+  ```
+    DB_DATABASE=hey_url_challenge_laravel
+    DB_USERNAME=<-- your local pg role
+  ```
+4. createdb hey_url_challenge_laravel
+5. php artisan migrate
+6. php artisan serve
+7. Open localhost:8000
 
-## Learning Laravel
+# Summary
+For this code challenge a Candidate will clone and setup an existing Laravel application. The application will contain routes, migrations, models, and minimal views but with no actual functionality created. The candidate will show all her/his expertise building apps with the Laravel framework and problem solving skills.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+# Overview
+HeyURL! is a service to create awesome friendly URLs to make it easier for people to remember. Our team developed some mock views but they lack our awesome functionality.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 2000 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+# Requirements
+1. Implement actions to create a short URL based on a given full URL
+1. If URL is not valid, the application returns an error message to the user
+1. We want to be able to provide basic click metrics to our users for each URL they generate.
+    1. Every time that someone clicks a short URL, it should record that click
+    1. the record should include the user platform and browser detected from the user agent
+1. We want to create a metrics panel for the user to view the stats for every short URL.
+    1. The user should be able to see total clicks per day on the current month
+    1. An additional chart with a breakdown of browsers and platforms
+1. If someone tries to visit a invalid short URL then it should return a 404 page
+1. Controllers, endpoints and models should be fully tested.
 
-## Laravel Sponsors
+# Spec for generating short URLs
+- It MUST have 5 characters in length e.g. NELNT
+- It MUST generate only upper case letters
+- It MUST NOT generate special characters
+- It MUST NOT generate whitespace
+- It MUST be unique
+- `short_url` attribute should store only the generated code
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
 
-### Premium Partners
+## Considerations
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[Many](https://www.many.co.uk)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[OP.GG](https://op.gg)**
-- **[WebReinvent](https://webreinvent.com/?utm_source=laravel&utm_medium=github&utm_campaign=patreon-sponsors)**
-- **[Lendio](https://lendio.com)**
+1. Check routes defined in `routes/web.rb`
+2. Check controller actions in `app/Http/Controllers/UrlController.rb`
+3. Check views in `resources/views/urls/`
+4. Check models in `app/*`
+5. Google Charts is already added to display charts, you can use any library
+6. Use the `jenssegers/agent` lib already installed to extract information about each click tracked
 
-## Contributing
+# Pages
+The following pages/urls are already built into our app:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+1. `GET /`: Contains the form and a list of the last 10 URL created with their
+   click count
+1. `GET /:url`: Redirects from a short URL to the original URL and should also
+   track the click event
+1. `GET /urls/:url`: Shows the metrics associated to the short URL
 
-## Code of Conduct
+# API - Optional Bonus Points
+We would like to have a way to retrieve the last 10 URLs created using an API
+endpoint. It should be JSON-API complaint. Here is an example of a response from
+the API:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```
+{
+  "data": [
+    {
+      "type": "urls",
+      "id": "1",
+      "attributes": {
+        "created-at": "2018-08-15T02:48:08.642Z",
+        "original-url": "www.fullstacklabs.co/angular-developers",
+        "url": "https://domain/fss1",
+        "clicks": 2
+      },
+      "relationships": {
+        "clicks": {
+          "data": [
+            {
+              "id": 1,
+              "type": "clicks"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "included": [
+    {
+      "type": "clicks",
+      "id": 1,
+      "attributes": {
+        ...
+      }
+    }
+  ]
+}
+```
