@@ -52,8 +52,8 @@ HeyURL! is a service to create awesome friendly URLs to make it easier for peopl
 
 ## Considerations
 
-1. Check routes defined in `routes/web.rb`
-2. Check controller actions in `app/Http/Controllers/UrlController.rb`
+1. Check routes defined in `routes/web.php`
+2. Check controller actions in `app/Http/Controllers/UrlController.php`
 3. Check views in `resources/views/urls/`
 4. Check models in `app/*`
 5. Google Charts is already added to display charts, you can use any library
