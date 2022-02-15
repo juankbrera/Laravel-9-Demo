@@ -5,10 +5,11 @@ namespace App\Http\Controllers;
 use App\Http\Requests\UrlStoreRequest;
 use App\Models\Click;
 use App\Models\Url;
+use App\Services\ClickMetricsService;
 use App\Services\ShortUrlGeneratorService;
+use App\Services\UrlService;
 use Illuminate\Http\Request;
 use Jenssegers\Agent\Agent;
-use Illuminate\Support\Facades\DB;
 
 class UrlController extends Controller
 {
@@ -17,7 +18,7 @@ class UrlController extends Controller
      *
      * @var Agent
      */
-    protected $agent;
+    protected Agent $agent;
 
     /**
      * Click Model
@@ -34,11 +35,25 @@ class UrlController extends Controller
     protected Url $url;
 
     /**
+     * ClickMetricsService Service
+     *
+     * @var ClickMetricsService
+     */
+    protected ClickMetricsService $click_metrics_service;
+
+    /**
      * Url Service
+     *
+     * @var UrlService
+     */
+    protected UrlService $url_service;
+
+    /**
+     * Short Url Generator Service
      *
      * @var ShortUrlGeneratorService
      */
-    protected ShortUrlGeneratorService $url_service;
+    protected ShortUrlGeneratorService $short_url_generator_service;
 
     /**
      * Create a new controller instance.
@@ -46,27 +61,31 @@ class UrlController extends Controller
      * @param Agent $agent
      * @param Click $click
      * @param Url $url
-     * @param ShortUrlGeneratorService $url_service
+     * @param UrlService $url_service
+     * @param ShortUrlGeneratorService $short_url_generator_service
+     * @param ClickMetricsService $click_metrics_service
      */
     public function __construct(
         Agent                    $agent,
         Click                    $click,
         Url                      $url,
-        ShortUrlGeneratorService $url_service
+        UrlService               $url_service,
+        ShortUrlGeneratorService $short_url_generator_service,
+        ClickMetricsService      $click_metrics_service
     )
     {
         $this->agent = $agent;
         $this->click = $click;
         $this->url = $url;
         $this->url_service = $url_service;
+        $this->short_url_generator_service = $short_url_generator_service;
+        $this->click_metrics_service = $click_metrics_service;
     }
 
-    public function index(Request $request)
-    {
-        $urls = $this->url->limit(10)
-            ->orderBy('created_at', 'desc')
-            ->get();
 
+    public function index()
+    {
+        $urls = $this->url_service->getLatest();
         $url = $this->url;
 
         return view('index', compact('url', 'urls'));
@@ -76,7 +95,7 @@ class UrlController extends Controller
     {
         // Validate data
         $validated_data = $request->validated();
-        $validated_data['short_url'] = $this->url_service->generateUniqueId();
+        $validated_data['short_url'] = $this->short_url_generator_service->generateUniqueId();
 
         // Create url record
         $this->url->create($validated_data);
@@ -84,18 +103,18 @@ class UrlController extends Controller
         return redirect('/');
     }
 
-    public function visit($url)
+    public function visit(string $short_url)
     {
         // Get url record
-        $url = $this->url->where('short_url', $url)->first();
+        $url = $this->url_service->getByShortUrl($short_url);
 
-        // Return 404 page if url is not found
+        // Return 404 page if the url is not found
         if (!$url) {
             abort(404);
         }
 
         // Increment clicks count
-        $url->increment('clicks_count');
+        $this->url_service->incrementUrlClicksCount($url);
 
         // Store click record
         $this->click->url_id = $url->id;
@@ -106,44 +125,20 @@ class UrlController extends Controller
         return redirect()->away($url->original_url);
     }
 
-    public function show($url)
+    public function show(string $short_url)
     {
         // Get url record
-        $url = $this->url->where('short_url', $url)->first();
+        $url = $this->url_service->getByShortUrl($short_url);
 
-        // Return 404 page if url is not found
+        // Return 404 page if the url is not found
         if (!$url) {
             abort(404);
         }
 
         // Get metrics
-        $daily_clicks = $this->click->where('url_id', $url->id)
-            ->where('created_at', '>', now()->subDays(30)->endOfDay())
-            ->select(DB::raw('DATE(created_at) as date'), DB::raw('count(*) as count'))
-            ->groupBy('date')
-            ->get()
-            ->map(function ($item) {
-                return [date("d", strtotime($item['date'])), $item['count']];
-            })
-            ->toArray();
-
-        $browsers_clicks = $this->click->where('url_id', $url->id)
-            ->select('browser', DB::raw('count(*) as count'))
-            ->groupBy('browser')
-            ->get()
-            ->map(function ($item) {
-                return [$item['browser'], $item['count']];
-            })
-            ->toArray();
-
-        $platform_clicks = $this->click->where('url_id', $url->id)
-            ->select('platform', DB::raw('count(*) as count'))
-            ->groupBy('platform')
-            ->get()
-            ->map(function ($item) {
-                return [$item['platform'], $item['count']];
-            })
-            ->toArray();
+        $daily_clicks = $this->click_metrics_service->getDailyClicks($url);
+        $browsers_clicks = $this->click_metrics_service->getBrowserClicks($url);
+        $platform_clicks = $this->click_metrics_service->getPlatformClicks($url);
 
         return view('show', compact('url', 'browsers_clicks', 'daily_clicks', 'platform_clicks'));
     }
