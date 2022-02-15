@@ -31,17 +31,18 @@ class UrlControllerTest extends TestCase
         ]);
     }
 
-    public function testLatestUrlsEndpoint()
+    public function testLatestUrlsEndpointReturnsASuccessfulResponse()
     {
         $response = $this->get('api/urls/latest');
         $response->assertStatus(200);
 
         $response->assertSee('data');
+        $response->assertSee('links');
+        $response->assertSee('self');
         $response->assertSee('id');
         $response->assertSee('short_url');
         $response->assertSee('original_url');
         $response->assertSee('clicks_count');
         $response->assertSee('created_at');
-        $response->assertSee('updated_at');
     }
 }

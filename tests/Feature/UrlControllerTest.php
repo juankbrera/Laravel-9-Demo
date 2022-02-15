@@ -31,7 +31,7 @@ class UrlControllerTest extends TestCase
         ]);
     }
 
-    public function testIndex()
+    public function testIndexPageReturnsASuccessfulResponse()
     {
         $response = $this->get('/');
         $response->assertStatus(200);
@@ -45,7 +45,7 @@ class UrlControllerTest extends TestCase
         $response->assertSee('Stats');
     }
 
-    public function testShow()
+    public function testShowPageReturnsASuccessfulResponse()
     {
         $response = $this->get('urls/ABC12');
         $response->assertStatus(200);
@@ -60,25 +60,25 @@ class UrlControllerTest extends TestCase
         $response->assertSee('Chrome');
     }
 
-    public function testShowForNonExistingUrl()
+    public function testShowPageFailsIfTheUrlIsInvalid()
     {
         $response = $this->get('urls/2h312');
         $response->assertStatus(404);
     }
 
-    public function testVisit()
+    public function testVisitPageReturnsASuccessfulResponse()
     {
         $response = $this->get('urls/ABC12');
         $response->assertStatus(200);
     }
 
-    public function testVisitForNonExistingUrl()
+    public function testVisitPageFailsIfTheUrlIsInvalid()
     {
         $response = $this->get('urls/2h312');
         $response->assertStatus(404);
     }
 
-    public function testCreate()
+    public function testStoreActionReturnsASuccessfulResponse()
     {
         $response = $this->followingRedirects()->post('urls', ['original_url' => $this->url->original_url . '/test']);
         $response->assertStatus(200);
@@ -86,7 +86,7 @@ class UrlControllerTest extends TestCase
         $response->assertSee($this->url->original_url  . '/test');
     }
 
-    public function testCreateForInvalidUrl()
+    public function testStoreActionFailsIfTheUrlIsInvalid()
     {
         $response = $this->followingRedirects()->post('urls', ['original_url' => 'invalid_url']);
         $response->assertStatus(200);
