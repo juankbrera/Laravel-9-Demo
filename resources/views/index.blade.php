@@ -16,10 +16,18 @@
                         </div>
                         <div class="row">
                             <div class="col m6 offset-m2">
-                                <input id="original_url"
+                                <input name="original_url"
                                        class="validate form-control"
                                        placeholder="Your original URL here"
                                        type="text">
+
+                                @if ($errors->any())
+                                    <ul class="red-text">
+                                        @foreach ($errors->all() as $error)
+                                            <li>{{ $error }}</li>
+                                        @endforeach
+                                    </ul>
+                                @endif
                             </div>
                             <div class="col m2">
                                 <button type="submit" class="waves-effect waves-light btn">Shorten URL</button>

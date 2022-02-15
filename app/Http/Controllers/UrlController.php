@@ -2,73 +2,149 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UrlStoreRequest;
+use App\Models\Click;
 use App\Models\Url;
+use App\Services\ShortUrlGeneratorService;
 use Illuminate\Http\Request;
 use Jenssegers\Agent\Agent;
+use Illuminate\Support\Facades\DB;
 
 class UrlController extends Controller
 {
-    public function index(Request $request)
+    /**
+     * Jenssegers Agent
+     *
+     * @var Agent
+     */
+    protected $agent;
+
+    /**
+     * Click Model
+     *
+     * @var Click
+     */
+    protected Click $click;
+
+    /**
+     * Url Model
+     *
+     * @var Url
+     */
+    protected Url $url;
+
+    /**
+     * Url Service
+     *
+     * @var ShortUrlGeneratorService
+     */
+    protected ShortUrlGeneratorService $url_service;
+
+    /**
+     * Create a new controller instance.
+     *
+     * @param Agent $agent
+     * @param Click $click
+     * @param Url $url
+     * @param ShortUrlGeneratorService $url_service
+     */
+    public function __construct(
+        Agent                    $agent,
+        Click                    $click,
+        Url                      $url,
+        ShortUrlGeneratorService $url_service
+    )
     {
-        /* $request->session()->flash('notice', 'Task was successful!'); */
-
-        $urls= [
-            new Url(["short_url" =>  '1ry23', 'original_url' =>  'http://google.com', 'created_at' => date("Y-m-d H:i:s"), 'clicks_count' => 0]),
-            new Url(['short_url' =>  '45126', 'original_url' =>  'http://facebook.com', 'created_at' => date("Y-m-d H:i:s"), 'clicks_count' => 0]),
-            new Url(['short_url' =>  '78sk9', 'original_url' =>  'http://yahoo.com', 'created_at' => date("Y-m-d H:i:s"), 'clicks_count' => 0])
-        ];
-
-        $url = new Url;
-
-        return view('index', ['url' =>$url, 'urls' => $urls]);
+        $this->agent = $agent;
+        $this->click = $click;
+        $this->url = $url;
+        $this->url_service = $url_service;
     }
 
-    public function create()
+    public function index(Request $request)
     {
-        /* Create a new URL record */
+        $urls = $this->url->limit(10)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $url = $this->url;
+
+        return view('index', compact('url', 'urls'));
+    }
+
+    public function store(UrlStoreRequest $request)
+    {
+        // Validate data
+        $validated_data = $request->validated();
+        $validated_data['short_url'] = $this->url_service->generateUniqueId();
+
+        // Create url record
+        $this->url->create($validated_data);
+
+        return redirect('/');
     }
 
     public function visit($url)
     {
-        /* $agent = new Agent(); */
-        // $url = find record a clicks, update irl clicks count and redirect to original url
+        // Get url record
+        $url = $this->url->where('short_url', $url)->first();
+
+        // Return 404 page if url is not found
+        if (!$url) {
+            abort(404);
+        }
+
+        // Increment clicks count
+        $url->increment('clicks_count');
+
+        // Store click record
+        $this->click->url_id = $url->id;
+        $this->click->browser = $this->agent->browser();
+        $this->click->platform = $this->agent->platform();
+        $this->click->save();
+
+        return redirect()->away($url->original_url);
     }
 
-
-    public function show()
+    public function show($url)
     {
-        $url = new Url(
-            [
-                'short_url' =>  '1ry23', 'original_url' =>  'http://google.com', 'created_at' => date("Y-m-d H:i:s"), 'clicks_count' => 0
-            ]
-        );
+        // Get url record
+        $url = $this->url->where('short_url', $url)->first();
 
-        // implement queries
-        $daily_clicks = [
-            ['1', 13],
-            ['2', 2],
-            ['3', 1],
-            ['4', 7],
-            ['5', 20],
-            ['6', 18],
-            ['7', 10],
-            ['8', 20],
-            ['9', 15],
-            ['10', 5]
-        ];
-        $browsers_clicks = [
-            ['IE', 13],
-            ['Firefox', 22],
-            ['Chrome', 17],
-            ['Safari', 7]
-        ];
-        $platform_clicks = [
-            ['Windows', 13],
-            ['macOS', 22],
-            ['Ubuntu', 17],
-            ['Other', 7]
-        ];
+        // Return 404 page if url is not found
+        if (!$url) {
+            abort(404);
+        }
 
-        return view('show', ['url' =>$url, 'browsers_clicks' => $browsers_clicks, 'daily_clicks' => $daily_clicks, 'platform_clicks' => $platform_clicks]);
+        // Get metrics
+        $daily_clicks = $this->click->where('url_id', $url->id)
+            ->where('created_at', '>', now()->subDays(30)->endOfDay())
+            ->select(DB::raw('DATE(created_at) as date'), DB::raw('count(*) as count'))
+            ->groupBy('date')
+            ->get()
+            ->map(function ($item) {
+                return [date("d", strtotime($item['date'])), $item['count']];
+            })
+            ->toArray();
+
+        $browsers_clicks = $this->click->where('url_id', $url->id)
+            ->select('browser', DB::raw('count(*) as count'))
+            ->groupBy('browser')
+            ->get()
+            ->map(function ($item) {
+                return [$item['browser'], $item['count']];
+            })
+            ->toArray();
+
+        $platform_clicks = $this->click->where('url_id', $url->id)
+            ->select('platform', DB::raw('count(*) as count'))
+            ->groupBy('platform')
+            ->get()
+            ->map(function ($item) {
+                return [$item['platform'], $item['count']];
+            })
+            ->toArray();
+
+        return view('show', compact('url', 'browsers_clicks', 'daily_clicks', 'platform_clicks'));
     }
 }
