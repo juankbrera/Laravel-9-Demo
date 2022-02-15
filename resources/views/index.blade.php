@@ -16,7 +16,7 @@
                         </div>
                         <div class="row">
                             <div class="col m6 offset-m2">
-                                <input id="original_url"
+                                <input name="original_url"
                                        class="validate form-control"
                                        placeholder="Your original URL here"
                                        type="text">
