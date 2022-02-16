@@ -1,8 +1,5 @@
 @extends('layouts.app')
 @section('content')
-    @if(Session::has('notice'))
-        <div class="card-panel notice deep-orange">{{Session::get('notice')}}</div>
-    @endif
     <div class="row">
         <div class="col m12">
             <form action="{{ route('urls.store') }}" method="POST">
@@ -20,6 +17,13 @@
                                        class="validate form-control"
                                        placeholder="Your original URL here"
                                        type="text">
+                                @if($errors->any())
+                                    <ul class="red-text">
+                                        @foreach($errors->all() as $error)
+                                            <li>{{$error}}</li>
+                                        @endforeach
+                                    </ul>
+                                @endif
                             </div>
                             <div class="col m2">
                                 <button type="submit" class="waves-effect waves-light btn">Shorten URL</button>
