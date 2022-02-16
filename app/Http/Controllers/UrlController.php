@@ -2,73 +2,140 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UrlStoreRequest;
+use App\Models\Click;
 use App\Models\Url;
+use App\Services\ClickMetricsService;
+use App\Services\ShortUrlGeneratorService;
+use App\Services\UrlService;
 use Illuminate\Http\Request;
 use Jenssegers\Agent\Agent;
 
 class UrlController extends Controller
 {
-    public function index(Request $request)
+    /**
+     * Jenssegers Agent
+     *
+     * @var Agent
+     */
+    protected Agent $agent;
+
+    /**
+     * Click Model
+     *
+     * @var Click
+     */
+    protected Click $click;
+
+    /**
+     * Click Metrics Service
+     *
+     * @var ClickMetricsService
+     */
+    protected ClickMetricsService $click_metrics_service;
+
+    /**
+     * Url Model
+     *
+     * @var Url
+     */
+    protected Url $url;
+
+    /**
+     * Url Service
+     *
+     * @var UrlService
+     */
+    protected UrlService $url_service;
+
+    /**
+     * Short Url Service
+     *
+     * @var ShortUrlGeneratorService
+     */
+    protected ShortUrlGeneratorService $short_url_generator_service;
+
+    /**
+     * Generate a new service instance
+     *
+     * @param Agent $agent
+     * @param Click $click
+     * @param Url $url
+     * @param UrlService $url_service
+     */
+    public function __construct(
+        Agent                    $agent,
+        Click                    $click,
+        ClickMetricsService      $click_metrics_service,
+        Url                      $url,
+        UrlService               $url_service,
+        ShortUrlGeneratorService $short_url_generator_service
+    )
     {
-        /* $request->session()->flash('notice', 'Task was successful!'); */
-
-        $urls= [
-            new Url(["short_url" =>  '1ry23', 'original_url' =>  'http://google.com', 'created_at' => date("Y-m-d H:i:s"), 'clicks_count' => 0]),
-            new Url(['short_url' =>  '45126', 'original_url' =>  'http://facebook.com', 'created_at' => date("Y-m-d H:i:s"), 'clicks_count' => 0]),
-            new Url(['short_url' =>  '78sk9', 'original_url' =>  'http://yahoo.com', 'created_at' => date("Y-m-d H:i:s"), 'clicks_count' => 0])
-        ];
-
-        $url = new Url;
-
-        return view('index', ['url' =>$url, 'urls' => $urls]);
+        $this->agent = $agent;
+        $this->click = $click;
+        $this->click_metrics_service = $click_metrics_service;
+        $this->url = $url;
+        $this->url_service = $url_service;
+        $this->short_url_generator_service = $short_url_generator_service;
     }
 
-    public function create()
+    public function index()
     {
-        /* Create a new URL record */
+        $urls = $this->url_service->getLatest();
+        return view('index', compact('urls'));
     }
 
-    public function visit($url)
+    public function store(UrlStoreRequest $request)
     {
-        /* $agent = new Agent(); */
-        // $url = find record a clicks, update irl clicks count and redirect to original url
+        // Getting validated data
+        $validated_data = $request->validated();
+        $validated_data['short_url'] = $this->short_url_generator_service->generate();
+
+        // Create url record
+        $this->url->create($validated_data);
+
+        return redirect('/');
+    }
+
+    public function visit(string $short_url)
+    {
+        // Get url record
+        $url = $this->url_service->getByShortUrl($short_url);
+
+        // Show 404 page if the url is not found
+        if (!$url) {
+            abort(404);
+        }
+
+        // Increment clicks count
+        $this->url_service->incrementUrlClicksCount($url);
+
+        // Store click record
+        $this->click->url_id = $url->id;
+        $this->click->browser = $this->agent->browser();
+        $this->click->platform = $this->agent->platform();
+        $this->click->save();
+
+        return redirect()->away($url->original_url);
     }
 
 
-    public function show()
+    public function show(string $short_url)
     {
-        $url = new Url(
-            [
-                'short_url' =>  '1ry23', 'original_url' =>  'http://google.com', 'created_at' => date("Y-m-d H:i:s"), 'clicks_count' => 0
-            ]
-        );
+        // Get url record
+        $url = $this->url_service->getByShortUrl($short_url);
+
+        // Show 404 page if the url is not found
+        if (!$url) {
+            abort(404);
+        }
 
         // implement queries
-        $daily_clicks = [
-            ['1', 13],
-            ['2', 2],
-            ['3', 1],
-            ['4', 7],
-            ['5', 20],
-            ['6', 18],
-            ['7', 10],
-            ['8', 20],
-            ['9', 15],
-            ['10', 5]
-        ];
-        $browsers_clicks = [
-            ['IE', 13],
-            ['Firefox', 22],
-            ['Chrome', 17],
-            ['Safari', 7]
-        ];
-        $platform_clicks = [
-            ['Windows', 13],
-            ['macOS', 22],
-            ['Ubuntu', 17],
-            ['Other', 7]
-        ];
+        $daily_clicks = $this->click_metrics_service->getDailyClicks($url);
+        $browsers_clicks = $this->click_metrics_service->getBrowserClicks($url);
+        $platform_clicks = $this->click_metrics_service->getPlatformClicks($url);
 
-        return view('show', ['url' =>$url, 'browsers_clicks' => $browsers_clicks, 'daily_clicks' => $daily_clicks, 'platform_clicks' => $platform_clicks]);
+        return view('show', compact('url', 'browsers_clicks', 'daily_clicks', 'platform_clicks'));
     }
 }
